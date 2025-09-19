@@ -23,6 +23,8 @@ const ChatInput = ({ onSendMessage }: ChatInputProps) => {
   const [messageBoxes, setMessageBoxes] = useState<MessageBox[]>([
     { id: '1', content: '' }
   ]);
+  const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
+  const [uploadedImages, setUploadedImages] = useState<File[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null);
@@ -46,8 +48,24 @@ const ChatInput = ({ onSendMessage }: ChatInputProps) => {
           }, index * 100); // Small delay between messages
         });
         
-        // Reset all boxes
+        // Send shared files
+        uploadedFiles.forEach((file, index) => {
+          setTimeout(() => {
+            onSendMessage(`Uploaded file: ${file.name}`, "file", file.name);
+          }, (validBoxes.length + index) * 100);
+        });
+        
+        // Send shared images
+        uploadedImages.forEach((file, index) => {
+          setTimeout(() => {
+            onSendMessage(`Uploaded image: ${file.name}`, "image", file.name);
+          }, (validBoxes.length + uploadedFiles.length + index) * 100);
+        });
+        
+        // Reset all boxes and uploads
         setMessageBoxes([{ id: '1', content: '' }]);
+        setUploadedFiles([]);
+        setUploadedImages([]);
       }
     } else {
       // Single line mode
@@ -99,9 +117,27 @@ const ChatInput = ({ onSendMessage }: ChatInputProps) => {
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, type: "file" | "image") => {
     const file = e.target.files?.[0];
     if (file) {
-      onSendMessage(`Uploaded ${type}: ${file.name}`, type, file.name);
+      if (isMultiLine) {
+        // For multi-line mode, add to shared uploads
+        if (type === "file") {
+          setUploadedFiles(prev => [...prev, file]);
+        } else {
+          setUploadedImages(prev => [...prev, file]);
+        }
+      } else {
+        // For single-line mode, send immediately
+        onSendMessage(`Uploaded ${type}: ${file.name}`, type, file.name);
+      }
       // Reset input
       e.target.value = "";
+    }
+  };
+
+  const removeUploadedFile = (index: number, type: "file" | "image") => {
+    if (type === "file") {
+      setUploadedFiles(prev => prev.filter((_, i) => i !== index));
+    } else {
+      setUploadedImages(prev => prev.filter((_, i) => i !== index));
     }
   };
 
@@ -119,6 +155,11 @@ const ChatInput = ({ onSendMessage }: ChatInputProps) => {
 
   const toggleInputMode = () => {
     setIsMultiLine(!isMultiLine);
+    // Reset uploads when switching modes
+    setUploadedFiles([]);
+    setUploadedImages([]);
+    // Reset message boxes to initial state
+    setMessageBoxes([{ id: '1', content: '' }]);
   };
 
   // Multi-box management functions
@@ -174,32 +215,34 @@ const ChatInput = ({ onSendMessage }: ChatInputProps) => {
 
   return (
     <div className="fixed bottom-0 left-0 right-0 bg-background border-t border-border">
-      <div className="container mx-auto max-w-4xl px-4 py-4">
+      <div className="container mx-auto max-w-4xl px-2 sm:px-4 py-4">
         {/* Mode indicator */}
         <div className="flex items-center justify-center mb-2">
-          <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/30 px-3 py-1 rounded-full">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/30 px-2 sm:px-3 py-1 rounded-full max-w-full">
             {isMultiLine ? (
               <>
-                <MessageSquareText className="h-3 w-3" />
-                <span>Multi-line mode • Click button or swipe left for single line</span>
+                <MessageSquareText className="h-3 w-3 flex-shrink-0" />
+                <span className="hidden sm:inline">Multi-line mode • Click button or swipe left for single line</span>
+                <span className="sm:hidden">Multi-line mode</span>
               </>
             ) : (
               <>
-                <Type className="h-3 w-3" />
-                <span>Single-line mode • Click button or swipe right for multi-line</span>
+                <Type className="h-3 w-3 flex-shrink-0" />
+                <span className="hidden sm:inline">Single-line mode • Click button or swipe right for multi-line</span>
+                <span className="sm:hidden">Single-line mode</span>
               </>
             )}
           </div>
         </div>
         
-        <div className="flex items-end gap-2">
+        <div className="flex items-end gap-1 sm:gap-2">
           {/* Mode Toggle Button */}
           <Button
             size="icon"
             variant="outline"
             onClick={toggleInputMode}
             className={cn(
-              "h-12 w-12 rounded-full transition-all",
+              "h-10 w-10 sm:h-12 sm:w-12 rounded-full transition-all flex-shrink-0",
               isMultiLine 
                 ? "bg-primary text-primary-foreground hover:bg-primary/90" 
                 : "hover:bg-muted"
@@ -207,29 +250,89 @@ const ChatInput = ({ onSendMessage }: ChatInputProps) => {
             title={isMultiLine ? "Switch to single line" : "Switch to multi-line"}
           >
             {isMultiLine ? (
-              <Type className="h-5 w-5" />
+              <Type className="h-4 w-4 sm:h-5 sm:w-5" />
             ) : (
-              <MessageSquareText className="h-5 w-5" />
+              <MessageSquareText className="h-4 w-4 sm:h-5 sm:w-5" />
             )}
           </Button>
 
           <div className="flex-1 relative">
             {isMultiLine ? (
               <div className="space-y-3">
+                {/* Shared Upload Controls for Multi-line Mode */}
+                <div className="flex items-center gap-1 sm:gap-2 pb-2 border-b border-border/50 flex-wrap">
+                  <span className="text-xs font-medium text-muted-foreground flex-shrink-0"></span>
+                 
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="h-7 px-2 sm:h-8 sm:px-3 text-muted-foreground hover:text-foreground text-xs"
+                    title="Upload file"
+                  >
+                    <Paperclip className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+                    <span className="hidden xs:inline">File</span>
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => imageInputRef.current?.click()}
+                    className="h-7 px-2 sm:h-8 sm:px-3 text-muted-foreground hover:text-foreground text-xs"
+                    title="Upload image"
+                  >
+                    <Image className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+                    <span className="hidden xs:inline">Image</span>
+                  </Button>
+                </div>
+
+                {/* Display uploaded files and images */}
+                {(uploadedFiles.length > 0 || uploadedImages.length > 0) && (
+                  <div className="flex flex-wrap gap-1 sm:gap-2 p-2 bg-muted/50 rounded border max-w-full overflow-hidden">
+                    {uploadedFiles.map((file, index) => (
+                      <div key={`file-${index}`} className="flex items-center gap-1 bg-background px-2 py-1 rounded text-xs max-w-full">
+                        <Paperclip className="h-3 w-3 flex-shrink-0" />
+                        <span className="truncate max-w-[120px] sm:max-w-[200px]">{file.name}</span>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => removeUploadedFile(index, "file")}
+                          className="h-4 w-4 p-0 hover:bg-destructive hover:text-destructive-foreground flex-shrink-0"
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ))}
+                    {uploadedImages.map((file, index) => (
+                      <div key={`image-${index}`} className="flex items-center gap-1 bg-background px-2 py-1 rounded text-xs max-w-full">
+                        <Image className="h-3 w-3 flex-shrink-0" />
+                        <span className="truncate max-w-[120px] sm:max-w-[200px]">{file.name}</span>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => removeUploadedFile(index, "image")}
+                          className="h-4 w-4 p-0 hover:bg-destructive hover:text-destructive-foreground flex-shrink-0"
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
                 {messageBoxes.map((box, index) => (
-                  <div key={box.id} className="relative border border-border rounded-lg p-3 bg-muted/30">
+                  <div key={box.id} className="relative border border-border rounded-lg  p-3 sm:p-3 bg-muted/30">
                     <div className="flex items-start gap-2">
-                      <div className="flex-1">
+                      <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-2">
-                          <span className="text-xs font-medium text-muted-foreground">
+                          {/* <span className="text-xs font-medium text-muted-foreground">
                             Message {index + 1}
-                          </span>
+                          </span> */}
                           {messageBoxes.length > 1 && (
                             <Button
                               size="icon"
                               variant="ghost"
                               onClick={() => removeMessageBox(box.id)}
-                              className="h-5 w-5 text-muted-foreground hover:text-destructive"
+                              className="h-5 w-5 absolute right-1 top-1 text-muted-foreground hover:text-destructive"
                             >
                               <X className="h-3 w-3" />
                             </Button>
@@ -243,7 +346,7 @@ const ChatInput = ({ onSendMessage }: ChatInputProps) => {
                           onTouchStart={handleTouchStart}
                           onTouchEnd={handleTouchEnd}
                           placeholder={`Type message ${index + 1}...`}
-                          className="resize-none min-h-[60px] max-h-24 text-sm border-0 bg-transparent p-0 focus-visible:ring-0"
+                          className="resize-none min-h-[60px] max-h-20 sm:max-h-24 text-sm border-0 bg-transparent p-2 focus-visible:ring-0 w-full"
                           rows={2}
                         />
                         
@@ -252,40 +355,19 @@ const ChatInput = ({ onSendMessage }: ChatInputProps) => {
                             <img 
                               src={box.imagePreview} 
                               alt="Preview" 
-                              className="w-20 h-20 object-cover rounded border"
+                              className="w-16 h-16 sm:w-20 sm:h-20 object-cover rounded border"
                             />
                             <Button
                               size="icon"
                               variant="destructive"
                               onClick={() => removeImage(box.id)}
-                              className="absolute -top-2 -right-2 h-6 w-6 rounded-full"
+                              className="absolute -top-1 -right-1 sm:-top-2 sm:-right-2 h-5 w-5 sm:h-6 sm:w-6 rounded-full"
                             >
-                              <X className="h-3 w-3" />
+                              <X className="h-2 w-2 sm:h-3 sm:w-3" />
                             </Button>
                           </div>
                         )}
                       </div>
-                      
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        onClick={() => {
-                          const input = document.createElement('input');
-                          input.type = 'file';
-                          input.accept = 'image/*';
-                          input.onchange = (e) => {
-                            const file = (e.target as HTMLInputElement).files?.[0];
-                            if (file) {
-                              handleImageUpload(box.id, file);
-                            }
-                          };
-                          input.click();
-                        }}
-                        className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                        title="Add image"
-                      >
-                        <Camera className="h-4 w-4" />
-                      </Button>
                     </div>
                   </div>
                 ))}
@@ -293,10 +375,11 @@ const ChatInput = ({ onSendMessage }: ChatInputProps) => {
                 <Button
                   variant="outline"
                   onClick={addMessageBox}
-                  className="w-full h-10 border-dashed border-2 text-muted-foreground hover:text-foreground"
+                  className="w-full h-10 border-dashed border-2 text-muted-foreground hover:text-foreground text-sm"
                 >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add another message
+                  <Plus className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />
+                  <span className="hidden xs:inline">Add another message</span>
+                  <span className="xs:hidden">Add message</span>
                 </Button>
               </div>
             ) : (
@@ -308,29 +391,29 @@ const ChatInput = ({ onSendMessage }: ChatInputProps) => {
                 onTouchStart={handleTouchStart}
                 onTouchEnd={handleTouchEnd}
                 placeholder="Type your message... (Click button or swipe right for multi-line)"
-                className="pr-12 py-6 text-base bg-muted/50 border-border focus:border-primary transition-colors"
+                className="pr-20 sm:pr-12 py-6 text-sm sm:text-base bg-muted/50 border-border focus:border-primary transition-colors"
               />
             )}
-            <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+            <div className="absolute right-1 sm:right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
               {!isMultiLine && (
                 <>
                   <Button
                     size="icon"
                     variant="ghost"
                     onClick={() => fileInputRef.current?.click()}
-                    className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                    className="h-7 w-7 sm:h-8 sm:w-8 text-muted-foreground hover:text-foreground"
                     title="Upload file"
                   >
-                    <Paperclip className="h-4 w-4" />
+                    <Paperclip className="h-3 w-3 sm:h-4 sm:w-4" />
                   </Button>
                   <Button
                     size="icon"
                     variant="ghost"
                     onClick={() => imageInputRef.current?.click()}
-                    className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                    className="h-7 w-7 sm:h-8 sm:w-8 text-muted-foreground hover:text-foreground"
                     title="Upload image"
                   >
-                    <Image className="h-4 w-4" />
+                    <Image className="h-3 w-3 sm:h-4 sm:w-4" />
                   </Button>
                 </>
               )}
@@ -342,25 +425,25 @@ const ChatInput = ({ onSendMessage }: ChatInputProps) => {
             variant={isRecording ? "destructive" : "outline"}
             onClick={toggleRecording}
             className={cn(
-              "h-12 w-12 rounded-full transition-all",
+              "h-10 w-10 sm:h-12 sm:w-12 rounded-full transition-all flex-shrink-0",
               isRecording && "animate-pulse"
             )}
             title={isRecording ? "Stop recording" : "Start recording"}
           >
             {isRecording ? (
-              <StopCircle className="h-5 w-5" />
+              <StopCircle className="h-4 w-4 sm:h-5 sm:w-5" />
             ) : (
-              <Mic className="h-5 w-5" />
+              <Mic className="h-4 w-4 sm:h-5 sm:w-5" />
             )}
           </Button>
           
           <Button
             size="icon"
             onClick={handleSend}
-            disabled={isMultiLine ? !messageBoxes.some(box => box.content.trim()) : !message.trim()}
-            className="h-12 w-12 rounded-full bg-gradient-primary hover:opacity-90 text-primary-foreground border-0 shadow-md hover:shadow-lg transition-all"
+            disabled={isMultiLine ? !(messageBoxes.some(box => box.content.trim()) || uploadedFiles.length > 0 || uploadedImages.length > 0) : !message.trim()}
+            className="h-10 w-10 sm:h-12 sm:w-12 rounded-full bg-gradient-primary hover:opacity-90 text-primary-foreground border-0 shadow-md hover:shadow-lg transition-all flex-shrink-0"
           >
-            <Send className="h-5 w-5" />
+            <Send className="h-4 w-4 sm:h-5 sm:w-5" />
           </Button>
         </div>
         
