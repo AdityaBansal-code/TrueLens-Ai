@@ -48,7 +48,7 @@ const Sidebar: React.FC<{ onSidebarOpen?: (open: boolean) => void }> = ({ onSide
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
       >
-        <div className="p-3 border-b border-border flex items-center justify-between">
+        <div style={{ padding: "22px 16px" }} className=" border-b border-border flex items-center justify-between">
           <button className="p-1 rounded-full hover:bg-muted transition" aria-label="Toggle sidebar" onClick={handleToggle}>
             <BarsIcon />
           </button>

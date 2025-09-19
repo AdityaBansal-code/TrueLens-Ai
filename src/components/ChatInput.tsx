@@ -57,7 +57,7 @@ const ChatInput = ({ onSendMessage }: ChatInputProps) => {
             <Input
               value={message}
               onChange={(e) => setMessage(e.target.value)}
-              onKeyPress={handleKeyPress}
+              onKeyDown={handleKeyPress}
               placeholder="Type your message..."
               className="pr-12 py-6 text-base bg-muted/50 border-border focus:border-primary transition-colors"
             />

@@ -87,7 +87,7 @@ const Chat = () => {
     <div className="relative h-screen">
       <Sidebar onSidebarOpen={setSidebarOpen} />
       <header
-        className={`flex items-center gap-2 py-4 px-6 border-b border-border bg-card transition-all duration-300 ${sidebarOpen ? "ml-72" : "ml-0"}`}
+        className={`flex items-center gap-2 py-4 px-6 border-b border-border bg-card transition-all duration-300 ${sidebarOpen ? "ml-56" : "ml-0"}`}
         style={{ zIndex: 10, position: "relative" }}
       >
         <button onClick={() => navigate(-1)} className="mr-2 text-muted-foreground">
