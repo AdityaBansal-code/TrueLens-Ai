@@ -16,6 +16,40 @@ interface Message {
 }
 
 const Chat = () => {
+  // Function to send content to API and get response
+const fetchApiResponse = async (content: string): Promise<string> => {
+  try {
+    const response = await fetch("https://my-fastapi-service-gmhbrnblwa-uc.a.run.app/verifier", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      // MODIFICATION 1: Match the body structure your API expects.
+      // We'll hardcode conversation_id and image_data for now as per your example.
+      body: JSON.stringify({ 
+        message: content,
+        conversation_id: "ed42", // You might want to manage this dynamically later
+        image_data: [] 
+      })
+    });
+
+    if (!response.ok) {
+        // Handle HTTP errors like 404 or 500
+        throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+
+    // MODIFICATION 2: Get the message content from the 'response' field, not 'result'.
+    return data.response || "No response content from API."; 
+
+  } catch (error) {
+    console.error("API Error:", error);
+    // Ensure the error message is a string
+    const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
+    return `Error: ${errorMessage}`;
+  }
+};
   const navigate = useNavigate();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [messages, setMessages] = useState<Message[]>([
@@ -50,17 +84,20 @@ const Chat = () => {
     setMessages(prev => [...prev, newMessage]);
     setIsTyping(true);
 
-    // Simulate API call
-    setTimeout(() => {
-      const botResponse: Message = {
-        id: (Date.now() + 1).toString(),
-        content: getBotResponse(content, type),
-        sender: "bot",
-        timestamp: new Date()
-      };
-      setMessages(prev => [...prev, botResponse]);
-      setIsTyping(false);
-    }, 1500);
+    let botContent: string;
+    if (type === "text") {
+      botContent = await fetchApiResponse(content);
+    } else {
+      botContent = getBotResponse(content, type);
+    }
+    const botResponse: Message = {
+      id: (Date.now() + 1).toString(),
+      content: botContent,
+      sender: "bot",
+      timestamp: new Date()
+    };
+    setMessages(prev => [...prev, botResponse]);
+    setIsTyping(false);
   };
 
   const getBotResponse = (content: string, type?: string): string => {
@@ -71,38 +108,37 @@ const Chat = () => {
       return "I've processed your voice message. The transcribed content has been analyzed for factual accuracy. Initial assessment shows the claims are mostly accurate with minor clarifications needed. Would you like me to fact-check specific statements?";
     }
     
-    // Simple keyword-based responses for demo
-    const lowerContent = content.toLowerCase();
-    if (lowerContent.includes("fake") || lowerContent.includes("false")) {
-      return "Based on my analysis, this content contains several red flags commonly associated with misinformation:\n\n• Unverified sources\n• Emotional language\n• Lack of supporting evidence\n\nConfidence: 92% likely to be false. Would you like me to provide fact-checked alternatives?";
-    }
-    if (lowerContent.includes("true") || lowerContent.includes("verify")) {
-      return "I'll analyze this for you. My preliminary assessment shows:\n\n✅ Credible sources cited\n✅ Factual claims align with verified data\n✅ No misleading context detected\n\nConfidence: 88% likely to be accurate. Need more specific analysis?";
-    }
+    // // text responses
+
     
-    return "I'm analyzing your query for potential misinformation. Please provide more context or specific content you'd like me to verify. I can check news articles, social media posts, images, or documents for factual accuracy.";
   };
 
   return (
-    <div className="relative h-screen">
+    
+  <div className="relative h-screen min-h-[100dvh]">
       <Sidebar onSidebarOpen={setSidebarOpen} />
       <header
-        className={`flex items-center gap-2 py-4 px-6 border-b border-border bg-card transition-all duration-300 ${sidebarOpen ? "ml-56" : "ml-0"}`}
+        className={`flex items-center gap-2 py-4 px-6 border-b border-border bg-card transition-all duration-300 ${sidebarOpen ? "ml-56" : "ml-0"} md:gap-4 md:px-8 md:py-4 sm:gap-2 sm:px-4 sm:py-3`}
         style={{ zIndex: 10, position: "relative" }}
       >
-        <button onClick={() => navigate(-1)} className="mr-2 text-muted-foreground">
+        <button 
+          onClick={() => navigate(-1)} 
+          className="mr-2 text-muted-foreground"
+          title="Go back"
+          aria-label="Go back"
+        >
           <ArrowLeft className="h-5 w-5" />
         </button>
-  <img src="/google-shield.svg" alt="Google Shield" className="w-10 h-10" />
-        <div className="ml-2">
+  <img src="/google-shield.svg" alt="Google Shield" className="w-10 h-10 min-w-8 min-h-8 sm:w-8 sm:h-8 md:w-10 md:h-10" />
+  <div className="ml-2 sm:ml-1 md:ml-2">
           <div className="font-bold text-lg">TrueLens AI</div>
           <div className="text-xs text-success">Online</div>
         </div>
       </header>
-      <main className="flex-1 flex flex-col">
+  <main className="flex-1 flex flex-col min-w-0">
         {/* Messages */}
         <div className="flex-1 overflow-y-auto pb-32">
-          <div className="container mx-auto max-w-4xl px-4 py-8">
+          <div className="container mx-auto max-w-4xl px-4 py-8 sm:px-2 sm:py-4 md:px-6 md:py-8">
             {messages.map((message) => (
               <ChatMessage key={message.id} message={message} />
             ))}
@@ -124,6 +160,7 @@ const Chat = () => {
         <ChatInput onSendMessage={handleSendMessage} />
       </main>
     </div>
+  
   );
 };
 
