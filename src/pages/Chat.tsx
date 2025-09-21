@@ -16,40 +16,6 @@ interface Message {
 }
 
 const Chat = () => {
-  // Function to send content to API and get response
-const fetchApiResponse = async (content: string): Promise<string> => {
-  try {
-    const response = await fetch("https://my-fastapi-service-gmhbrnblwa-uc.a.run.app/verifier", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      // MODIFICATION 1: Match the body structure your API expects.
-      // We'll hardcode conversation_id and image_data for now as per your example.
-      body: JSON.stringify({ 
-        message: content,
-        conversation_id: "ed42", // You might want to manage this dynamically later
-        image_data: [] 
-      })
-    });
-
-    if (!response.ok) {
-        // Handle HTTP errors like 404 or 500
-        throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    const data = await response.json();
-
-    // MODIFICATION 2: Get the message content from the 'response' field, not 'result'.
-    return data.response || "No response content from API."; 
-
-  } catch (error) {
-    console.error("API Error:", error);
-    // Ensure the error message is a string
-    const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
-    return `Error: ${errorMessage}`;
-  }
-};
   const navigate = useNavigate();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [messages, setMessages] = useState<Message[]>([
@@ -71,6 +37,42 @@ const fetchApiResponse = async (content: string): Promise<string> => {
     scrollToBottom();
   }, [messages]);
 
+  const fetchApiResponse = async (content: string): Promise<string> => {
+    try {
+      const response = await fetch("https://my-fastapi-app-575174467987.us-central1.run.app/verify", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ 
+          text_claims: [content],
+          images_base64: [] 
+        })
+      });
+
+      if (!response.ok) {
+        if (response.status === 500) {
+          throw new Error("The verification service is currently experiencing issues. Please try again in a few moments.");
+        } else if (response.status === 429) {
+          throw new Error("Too many requests. Please wait a moment before trying again.");
+        } else {
+          throw new Error(`Server error (${response.status}). Please try again later.`);
+        }
+      }
+
+      const data = await response.json();
+      if (!data.response) {
+        throw new Error("Invalid response format from server");
+      }
+      return data.response;
+
+    } catch (error) {
+      console.error("API Error:", error);
+      const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
+      return `I apologize, but I'm having trouble processing your request. ${errorMessage} Please try again or rephrase your question.`;
+    }
+  };
+
   const handleSendMessage = async (content: string, type?: "text" | "file" | "image" | "voice", fileName?: string) => {
     const newMessage: Message = {
       id: Date.now().toString(),
@@ -84,20 +86,33 @@ const fetchApiResponse = async (content: string): Promise<string> => {
     setMessages(prev => [...prev, newMessage]);
     setIsTyping(true);
 
-    let botContent: string;
-    if (type === "text") {
-      botContent = await fetchApiResponse(content);
-    } else {
-      botContent = getBotResponse(content, type);
+    try {
+      let botContent: string;
+      if (type === "text") {
+        botContent = await fetchApiResponse(content);
+      } else {
+        botContent = getBotResponse(content, type);
+      }
+      
+      const botResponse: Message = {
+        id: (Date.now() + 1).toString(),
+        content: botContent,
+        sender: "bot",
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, botResponse]);
+    } catch (error) {
+      // Add error message to chat
+      const errorResponse: Message = {
+        id: (Date.now() + 1).toString(),
+        content: "I apologize, but something went wrong. Please try again.",
+        sender: "bot",
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, errorResponse]);
+    } finally {
+      setIsTyping(false);
     }
-    const botResponse: Message = {
-      id: (Date.now() + 1).toString(),
-      content: botContent,
-      sender: "bot",
-      timestamp: new Date()
-    };
-    setMessages(prev => [...prev, botResponse]);
-    setIsTyping(false);
   };
 
   const getBotResponse = (content: string, type?: string): string => {
@@ -108,9 +123,8 @@ const fetchApiResponse = async (content: string): Promise<string> => {
       return "I've processed your voice message. The transcribed content has been analyzed for factual accuracy. Initial assessment shows the claims are mostly accurate with minor clarifications needed. Would you like me to fact-check specific statements?";
     }
     
-    // // text responses
-
-    
+    // Default text response
+    return "I'm analyzing your message... \n\nBased on my analysis, I can provide insights about the credibility of this information. Would you like me to explain my findings in detail?";
   };
 
   return (

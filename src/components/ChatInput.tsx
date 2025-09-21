@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import { VoiceRecorder } from "@/utils/voiceRecorder";
 
 interface MessageBox {
   id: string;
@@ -19,6 +20,7 @@ interface ChatInputProps {
 const ChatInput = ({ onSendMessage }: ChatInputProps) => {
   const [message, setMessage] = useState("");
   const [isRecording, setIsRecording] = useState(false);
+  const [isTranscribing, setIsTranscribing] = useState(false);
   const [isMultiLine, setIsMultiLine] = useState(false);
   const [messageBoxes, setMessageBoxes] = useState<MessageBox[]>([
     { id: '1', content: '' }
@@ -28,6 +30,7 @@ const ChatInput = ({ onSendMessage }: ChatInputProps) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null);
+  const voiceRecorder = useRef<VoiceRecorder>(new VoiceRecorder());
   
   // Touch tracking for swipe detection
   const touchStartX = useRef<number>(0);
@@ -141,15 +144,56 @@ const ChatInput = ({ onSendMessage }: ChatInputProps) => {
     }
   };
 
-  const toggleRecording = () => {
-    if (isRecording) {
-      // Stop recording
+  const transcribeAudio = async (base64Audio: string): Promise<string> => {
+    try {
+      const response = await fetch('YOUR_TRANSCRIPTION_API_ENDPOINT', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          audio: base64Audio,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Transcription failed');
+      }
+
+      const data = await response.json();
+      return data.transcript;
+    } catch (error) {
+      console.error('Transcription error:', error);
+      throw error;
+    }
+  };
+
+  const toggleRecording = async () => {
+    try {
+      if (isRecording) {
+        setIsRecording(false);
+        setIsTranscribing(true);
+        const base64Audio = await voiceRecorder.current.stopRecording();
+        const transcript = await transcribeAudio(base64Audio);
+        setIsTranscribing(false);
+        
+        if (isMultiLine) {
+          // In multi-line mode, add transcript to current message box
+          const currentBox = messageBoxes[messageBoxes.length - 1];
+          updateMessageBox(currentBox.id, transcript);
+        } else {
+          // In single-line mode, set transcript as message
+          setMessage(transcript);
+        }
+      } else {
+        await voiceRecorder.current.startRecording();
+        setIsRecording(true);
+      }
+    } catch (error) {
+      console.error('Recording error:', error);
       setIsRecording(false);
-      onSendMessage("Voice message recorded", "voice");
-    } else {
-      // Start recording
-      setIsRecording(true);
-      // In a real app, you would start actual recording here
+      setIsTranscribing(false);
+      // Handle error (show notification to user)
     }
   };
 
@@ -162,7 +206,6 @@ const ChatInput = ({ onSendMessage }: ChatInputProps) => {
     setMessageBoxes([{ id: '1', content: '' }]);
   };
 
-  // Multi-box management functions
   const addMessageBox = () => {
     const newBox: MessageBox = {
       id: Date.now().toString(),
@@ -185,22 +228,6 @@ const ChatInput = ({ onSendMessage }: ChatInputProps) => {
     );
   };
 
-  const handleImageUpload = (id: string, file: File) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      setMessageBoxes(prev => 
-        prev.map(box => 
-          box.id === id ? { 
-            ...box, 
-            image: file, 
-            imagePreview: e.target?.result as string 
-          } : box
-        )
-      );
-    };
-    reader.readAsDataURL(file);
-  };
-
   const removeImage = (id: string) => {
     setMessageBoxes(prev => 
       prev.map(box => 
@@ -213,6 +240,7 @@ const ChatInput = ({ onSendMessage }: ChatInputProps) => {
     );
   };
 
+  // Replace or update the recording button JSX
   return (
     <div className="fixed bottom-0 left-0 right-0 bg-background border-t border-border">
       <div className="container mx-auto max-w-4xl px-2 sm:px-4 py-4">
@@ -426,12 +454,16 @@ const ChatInput = ({ onSendMessage }: ChatInputProps) => {
             onClick={toggleRecording}
             className={cn(
               "h-10 w-10 sm:h-12 sm:w-12 rounded-full transition-all flex-shrink-0",
-              isRecording && "animate-pulse"
+              isRecording && "animate-pulse",
+              isTranscribing && "opacity-50 cursor-not-allowed"
             )}
-            title={isRecording ? "Stop recording" : "Start recording"}
+            disabled={isTranscribing}
+            title={isRecording ? "Stop recording" : isTranscribing ? "Transcribing..." : "Start recording"}
           >
             {isRecording ? (
               <StopCircle className="h-4 w-4 sm:h-5 sm:w-5" />
+            ) : isTranscribing ? (
+              <div className="animate-spin h-4 w-4 sm:h-5 sm:w-5 border-2 border-current rounded-full border-t-transparent" />
             ) : (
               <Mic className="h-4 w-4 sm:h-5 sm:w-5" />
             )}
