@@ -146,13 +146,14 @@ const ChatInput = ({ onSendMessage }: ChatInputProps) => {
 
   const transcribeAudio = async (base64Audio: string): Promise<string> => {
     try {
-      const response = await fetch('YOUR_TRANSCRIPTION_API_ENDPOINT', {
+      const response = await fetch('https://my-fastapi-app-575174467987.us-central1.run.app/transcribe', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          audio: base64Audio,
+          audio_b64: base64Audio,
+          format : "string"
         }),
       });
 
