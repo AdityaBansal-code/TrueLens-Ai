@@ -61,11 +61,7 @@ const Chat = () => {
       }
 
       const data = await response.json();
-      if (!data.response) {
-        throw new Error("Invalid response format from server");
-      }
-      return data.response;
-
+      return JSON.stringify(data, null, 2); // Return formatted JSON string
     } catch (error) {
       console.error("API Error:", error);
       const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
