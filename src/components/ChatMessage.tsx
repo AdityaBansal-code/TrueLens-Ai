@@ -51,7 +51,8 @@ const ChatMessage = ({ message }: ChatMessageProps) => {
           "text-xs text-muted-foreground mt-1 block opacity-0 group-hover:opacity-100 transition-opacity",
           isUser ? "text-right mr-1" : "text-left ml-1"
         )}>
-          {format(message.timestamp, "HH:mm")}
+       format(message.timestamp.toDate(), "hh:mm a")
+
         </span>
       </div>
     </div>

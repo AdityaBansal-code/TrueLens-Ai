@@ -46,7 +46,7 @@ const ChatInput = ({ onSendMessage }: ChatInputProps) => {
             if (box.image) {
               onSendMessage(`${box.content}\n[Image: ${box.image.name}]`, "image", box.image.name);
             } else {
-              onSendMessage(box.content, "text");
+              onSendMessage(box.content, "text","text");
             }
           }, index * 100); // Small delay between messages
         });
@@ -73,7 +73,7 @@ const ChatInput = ({ onSendMessage }: ChatInputProps) => {
     } else {
       // Single line mode
       if (message.trim()) {
-        onSendMessage(message, "text");
+        onSendMessage(message, "text","text");
         setMessage("");
       }
     }
