@@ -28,8 +28,9 @@ interface Message {
   content: string;
   sender: "user" | "bot";
   timestamp: Date;
-  type?: "text" | "file" | "image" | "voice";
+  type?: "text" | "file" | "image" | "voice" | "verified";
   fileName?: string;
+  meta?: any; // additional structured payload (e.g., verified_results)
 }
 
 const Chat = () => {
@@ -192,7 +193,8 @@ const Chat = () => {
   const wsRef = useRef<WebSocket | null>(null);
   const pendingRef = useRef(new Map<string, { resolve: (v: any) => void; reject: (e: any) => void; timeout: any; }>());
 
-   useEffect(() => {
+  // WebSocket connection management with reconnect/backoff
+  useEffect(() => {
     const mounted = { current: true } as { current: boolean };
     const reconnectRef = { current: 0 } as { current: number };
 
@@ -285,7 +287,6 @@ const Chat = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-
   const sendViaWebSocket = (payload: any, timeoutMs = 30000) => {
     return new Promise<any>((resolve, reject) => {
       const ws = wsRef.current;
@@ -368,6 +369,28 @@ const Chat = () => {
       return { error: true, message: `I apologize, but I'm having trouble processing your request. ${errorMessage} Please try again or rephrase your question.` };
     }
   };
+function cleanVertexLinks(text: string) {
+  const urlRegex = /(https?:\/\/[^\s)]+)/g;
+
+  return text.replace(urlRegex, (match) => {
+    try {
+      const parsed = new URL(match);
+
+      // If it's a Vertex redirect, replace with domain placeholder
+      if (parsed.hostname.includes("vertexaisearch.cloud.google.com")) {
+        // Option 1: Extract the target domain from query text (if present)
+        // Option 2: just show as [External Source]
+        return `[External Source](${match})`;
+      }
+
+      // Otherwise, show clean clickable link with domain only
+      const cleanDomain = parsed.hostname.replace("www.", "");
+      return `[${cleanDomain}](${match})`;
+    } catch {
+      return match;
+    }
+  });
+}
 
   const handleSendMessage = async (content: string, type?: "text" | "file" | "image" | "voice", fileName?: string, file?: File) => {
     const newMessage: Message = {
@@ -395,10 +418,13 @@ const Chat = () => {
             const vrSummary = formatVerifiedResults(resp.verified_results);
             const vrMessage: Message = {
               id: (Date.now() + 2).toString(),
-              content: vrSummary,
+              content: "Verified results",
               sender: "bot",
-              timestamp: new Date()
+              timestamp: new Date(),
+              type: "verified",
+              meta: { verified_results: resp.verified_results }
             };
+            console.log("Adding verified results message (structured)");
             setMessages(prev => [...prev, vrMessage]);
           }
         }
@@ -449,9 +475,11 @@ const Chat = () => {
                 const vrSummary = formatVerifiedResults(resp.verified_results);
                 const vrMessage: Message = {
                   id: (Date.now() + 3).toString(),
-                  content: vrSummary,
+                  content: "Verified results",
                   sender: "bot",
-                  timestamp: new Date()
+                  timestamp: new Date(),
+                  type: "verified",
+                  meta: { verified_results: resp.verified_results }
                 };
                 setMessages(prev => [...prev, vrMessage]);
               }
@@ -466,13 +494,14 @@ const Chat = () => {
       } else {
         botContent = getBotResponse(content, type);
       }
-      
+      const formattedContent = cleanVertexLinks(botContent);
       const botResponse: Message = {
         id: (Date.now() + 1).toString(),
-        content: botContent,
+        content: formattedContent,
         sender: "bot",
         timestamp: new Date()
       };
+      console.log("Bot response message:", botResponse);
       setMessages(prev => [...prev, botResponse]);
     } catch (error) {
       // Add error message to chat
@@ -487,6 +516,9 @@ const Chat = () => {
       setIsTyping(false);
     }
   };
+  useEffect(() => {
+    console.log("Messages updated:", messages);
+  }, [messages]);
 
 
   const getBotResponse = (content: string, type?: string): string => {
@@ -554,6 +586,7 @@ const Chat = () => {
       return `Verified results: ${JSON.stringify(verifiedResults)}`;
     }
   };
+
 
   return (
     
