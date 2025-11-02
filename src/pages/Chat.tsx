@@ -192,79 +192,99 @@ const Chat = () => {
   const wsRef = useRef<WebSocket | null>(null);
   const pendingRef = useRef(new Map<string, { resolve: (v: any) => void; reject: (e: any) => void; timeout: any; }>());
 
-  useEffect(() => {
-    let ws: WebSocket | null = null;
-    try {
-      ws = new WebSocket(WS_ENDPOINT);
-      wsRef.current = ws;
+   useEffect(() => {
+    const mounted = { current: true } as { current: boolean };
+    const reconnectRef = { current: 0 } as { current: number };
 
-      ws.addEventListener('open', () => console.log('WS connected to', WS_ENDPOINT));
+    const createWebSocket = () => {
+      try {
+        const ws = new WebSocket(WS_ENDPOINT);
+        wsRef.current = ws;
 
-      ws.addEventListener('message', (ev) => {
-        try {
-          const msg = JSON.parse(ev.data as string);
-          const reqId = msg.request_id || msg.requestId || msg.id;
+        ws.addEventListener('open', () => {
+          console.log('WS connected to', WS_ENDPOINT);
+          reconnectRef.current = 0; // reset backoff
+        });
 
-          if (reqId && pendingRef.current.has(reqId)) {
-            const p = pendingRef.current.get(reqId)!;
-            clearTimeout(p.timeout);
-            p.resolve(msg);
-            pendingRef.current.delete(reqId);
-            return;
+        ws.addEventListener('message', (ev) => {
+          try {
+            const msg = JSON.parse(ev.data as string);
+            const reqId = msg.request_id || msg.requestId || msg.id;
+
+            if (reqId && pendingRef.current.has(reqId)) {
+              const p = pendingRef.current.get(reqId)!;
+              clearTimeout(p.timeout);
+              p.resolve(msg);
+              pendingRef.current.delete(reqId);
+              return;
+            }
+
+            // If server doesn't echo request id but sends an event like 'agent_finish',
+            // resolve the oldest pending request (best-effort mapping).
+            if ((!reqId) && msg.event === 'agent_finish' && pendingRef.current.size > 0) {
+              const firstKey = pendingRef.current.keys().next().value;
+              const p = pendingRef.current.get(firstKey)!;
+              clearTimeout(p.timeout);
+              p.resolve(msg.final_output || msg);
+              pendingRef.current.delete(firstKey);
+              return;
+            }
+
+            if (msg.event === 'log') {
+              if (msg.type === 'error') console.error('Agent log (error)', msg.message || msg);
+              else console.info('Agent log', msg.message || msg);
+              return;
+            }
+
+            if (msg.event === 'agent_start' || msg.event === 'agent_progress' || msg.event === 'node_start' || msg.event === 'node_end' || msg.event === 'agent') {
+              console.info('Agent event', msg);
+              return;
+            }
+
+            if (msg.event === 'error') {
+              console.error('Agent error', msg);
+              return;
+            }
+
+            console.info('WS message without matching request id (unrecognized event)', msg);
+          } catch (err) {
+            console.error('Failed to parse WS message', err);
           }
+        });
 
-          // If server doesn't echo request id but sends an event like 'agent_finish',
-          // resolve the oldest pending request (best-effort mapping).
-          if ((!reqId) && msg.event === 'agent_finish' && pendingRef.current.size > 0) {
-            const firstKey = pendingRef.current.keys().next().value;
-            const p = pendingRef.current.get(firstKey)!;
-            clearTimeout(p.timeout);
-            p.resolve(msg.final_output || msg);
-            pendingRef.current.delete(firstKey);
-            return;
-          }
+        ws.addEventListener('error', (e) => console.error('WS error', e));
 
-          // Messages without a request id are commonly agent lifecycle logs
-          // (progress, node start/end, startup logs, etc.). They are informational
-          // and not necessarily tied to a single request id. Handle them more
-          // gracefully rather than emitting a noisy warning.
-          if (msg.event === 'log') {
-            // server log entries may carry a `type` (info, agent, error, turn)
-            if (msg.type === 'error') console.error('Agent log (error)', msg.message || msg);
-            else console.info('Agent log', msg.message || msg);
-            return;
-          }
+        ws.addEventListener('close', (e) => {
+          console.log('WS closed', e);
+          // Attempt reconnect if component is still mounted
+          if (!mounted.current) return;
+          // simple exponential backoff up to ~30s
+          reconnectRef.current = Math.min(reconnectRef.current + 1, 6);
+          const delay = Math.pow(2, reconnectRef.current) * 500; // 500ms,1s,2s,4s...
+          console.info(`Attempting WS reconnect in ${delay}ms`);
+          setTimeout(() => {
+            if (!mounted.current) return;
+            createWebSocket();
+          }, delay);
+        });
+      } catch (err) {
+        console.error('Could not open WS', err);
+      }
+    };
 
-          if (msg.event === 'agent_start' || msg.event === 'agent_progress' || msg.event === 'node_start' || msg.event === 'node_end' || msg.event === 'agent') {
-            console.info('Agent event', msg);
-            return;
-          }
-
-          if (msg.event === 'error') {
-            // Top-level error events from the agent
-            console.error('Agent error', msg);
-            return;
-          }
-
-          // Fallback to an informational notice for any other unrecognized messages
-          console.info('WS message without matching request id (unrecognized event)', msg);
-        } catch (err) {
-          console.error('Failed to parse WS message', err);
-        }
-      });
-
-      ws.addEventListener('error', (e) => console.error('WS error', e));
-      ws.addEventListener('close', (e) => console.log('WS closed', e));
-    } catch (err) {
-      console.error('Could not open WS', err);
-    }
+    // Start connection
+    createWebSocket();
 
     return () => {
-      try { ws?.close(); } catch (e) { /* ignore */ }
+      mounted.current = false;
+      try { wsRef.current?.close(); } catch (e) { /* ignore */ }
+      // On unmount reject any pending requests
       pendingRef.current.forEach((p) => { clearTimeout(p.timeout); p.reject(new Error('socket closed')); });
       pendingRef.current.clear();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
 
   const sendViaWebSocket = (payload: any, timeoutMs = 30000) => {
     return new Promise<any>((resolve, reject) => {
