@@ -20,8 +20,9 @@ export interface Message {
   content: string;
   sender: "user" | "bot";
   timestamp: Date;
-  type?: "text" | "file" | "image" | "voice";
-  fileName?: string;
+  type?: "text" | "file" | "image" | "voice" | "verified";
+  fileName?: string | null;
+  meta?: any | null; // structured metadata (e.g. verified_results)
 }
 
 export interface Chat {
@@ -57,8 +58,10 @@ const dateToTimestamp = (date: Date): Timestamp => {
 const messageToFirestore = (message: Message) => {
    const cleaned = {
     ...message,
+    // Convert Date -> Firestore Timestamp. If timestamp missing, use serverTimestamp()
     timestamp: message.timestamp ? dateToTimestamp(message.timestamp) : serverTimestamp(),
     fileName: message.fileName ?? null, // replace undefined with null
+    meta: message.meta ?? null,
   };
   return cleanObject(cleaned);
 };
@@ -67,6 +70,7 @@ const messageToFirestore = (message: Message) => {
 const messageFromFirestore = (data: any): Message => ({
   ...data,
   timestamp: timestampToDate(data.timestamp),
+  meta: data.meta ?? null,
 });
 
 // Create a new chat
@@ -82,7 +86,8 @@ export const createChat = async (userId: string, firstMessage?: Message): Promis
     updatedAt: serverTimestamp(),
   };
      console.log("backenddd",chatData)
-     chatData.messages.forEach((m, i) => {
+     // warn about undefined fields in message objects
+     (chatData.messages || []).forEach((m: any, i: number) => {
         Object.entries(m).forEach(([key, value]) => {
           if (value === undefined) console.warn(`Message ${i} has undefined ${key}`);
         });
@@ -121,7 +126,7 @@ export const getChat = async (chatId: string): Promise<Chat | null> => {
     id: chatSnap.id,
     userId: data.userId,
     title: data.title,
-    messages: data.messages.map(messageFromFirestore),
+    messages: Array.isArray(data.messages) ? data.messages.map(messageFromFirestore) : [],
     createdAt: timestampToDate(data.createdAt),
     updatedAt: timestampToDate(data.updatedAt),
   };
@@ -142,7 +147,7 @@ export const getUserChats = async (userId: string): Promise<Chat[]> => {
       id: doc.id,
       userId: data.userId,
       title: data.title,
-      messages: data.messages.map(messageFromFirestore),
+      messages: Array.isArray(data.messages) ? data.messages.map(messageFromFirestore) : [],
       createdAt: timestampToDate(data.createdAt),
       updatedAt: timestampToDate(data.updatedAt),
     };
@@ -167,7 +172,7 @@ export const subscribeToUserChats = (
         id: doc.id,
         userId: data.userId,
         title: data.title,
-        messages: data.messages.map(messageFromFirestore),
+        messages: Array.isArray(data.messages) ? data.messages.map(messageFromFirestore) : [],
         createdAt: timestampToDate(data.createdAt),
         updatedAt: timestampToDate(data.updatedAt),
       };
@@ -189,4 +194,5 @@ export const updateChatTitle = async (chatId: string, title: string): Promise<vo
     updatedAt: dateToTimestamp(new Date()),
   });
 };
+
 
