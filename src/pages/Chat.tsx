@@ -514,7 +514,7 @@ function cleanVertexLinks(text: string) {
         }
       } else if (type === "image") {
         // If a File is provided, upload it to backend which will store it in GCS and return a URL
-  const API_BASE = (import.meta.env.VITE_API_BASE as string) || "http://localhost:8000";
+  const API_BASE = (import.meta.env.VITE_API_BASE as string) || "https://my-fastapi-app-698063521469.asia-south1.run.app";
   console.log("Upload API base:", API_BASE);
         if (file) {
           try {
