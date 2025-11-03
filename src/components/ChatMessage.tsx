@@ -1,6 +1,6 @@
-
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
+import { useState } from "react";
 import ReactMarkdown from "react-markdown";
 interface ChatMessageProps {
   message: {
@@ -16,6 +16,7 @@ interface ChatMessageProps {
 
 const ChatMessage = ({ message }: ChatMessageProps) => {
   const isUser = message.sender === "user";
+  const [showLogs, setShowLogs] = useState(false);
 
   return (
     <div className={cn(
@@ -123,11 +124,27 @@ const ChatMessage = ({ message }: ChatMessageProps) => {
 </div>
           )}
         </div>
+        {/* Agent "thinking" logs (optional) */}
+        {message.meta?.agent_logs && Array.isArray(message.meta.agent_logs) && message.meta.agent_logs.length > 0 && (
+          <div className="mt-2">
+            <button onClick={() => setShowLogs((s) => !s)} className="text-xs text-muted-foreground underline">
+              {showLogs ? 'Hide AI thoughts' : 'Show AI thoughts'}
+            </button>
+            {showLogs && (
+              <div className="mt-2 p-2 bg-black/5 rounded text-xs font-mono whitespace-pre-wrap max-h-52 overflow-auto">
+                {message.meta.agent_logs.map((line: string, i: number) => (
+                  <div key={i} className="mb-1">{line}</div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
         <span className={cn(
           "text-xs text-muted-foreground mt-1 block opacity-0 group-hover:opacity-100 transition-opacity",
           isUser ? "text-right mr-1" : "text-left ml-1"
         )}>
-          {format(message.timestamp, "hh:mm a")}
+       format(message.timestamp.toDate(), "hh:mm a")
+
         </span>
       </div>
     </div>
