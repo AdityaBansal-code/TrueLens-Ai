@@ -25,7 +25,7 @@ const ChatInput = ({ onSendMessage }: ChatInputProps) => {
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [isMultiLine, setIsMultiLine] = useState(false);
   const [messageBoxes, setMessageBoxes] = useState<MessageBox[]>([
-    { id: '1', content: '' }
+    { id: `${Date.now()}-${Math.random().toString(36).slice(2,9)}`, content: '' }
   ]);
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [uploadedImages, setUploadedImages] = useState<File[]>([]);
@@ -222,11 +222,12 @@ const ChatInput = ({ onSendMessage }: ChatInputProps) => {
 
   const addMessageBox = () => {
     const newBox: MessageBox = {
-      id: Date.now().toString(),
+      id: `${Date.now()}-${Math.random().toString(36).slice(2,9)}`,
       content: ''
     };
     setMessageBoxes(prev => [...prev, newBox]);
   };
+
 
   const removeMessageBox = (id: string) => {
     if (messageBoxes.length > 1) {
