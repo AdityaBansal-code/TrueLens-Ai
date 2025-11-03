@@ -184,6 +184,9 @@ const Chat = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
+  // Generate a compact unique id for messages to avoid duplicate React keys
+  const genId = () => `${Date.now()}-${Math.random().toString(36).slice(2,9)}`;
+
   // Canonical hosted API base (use this for verification and uploads if you want the hosted service)
   const HOSTED_API = 'https://genai-exchange-698063521469.asia-south1.run.app';
   // WebSocket endpoint for agent invocation
@@ -192,6 +195,12 @@ const Chat = () => {
   // WebSocket connection + pending request map
   const wsRef = useRef<WebSocket | null>(null);
   const pendingRef = useRef(new Map<string, { resolve: (v: any) => void; reject: (e: any) => void; timeout: any; }>());
+  // Collect per-request agent logs so we can show "what the model is thinking"
+  const pendingLogsRef = useRef(new Map<string, string[]>());
+  // Live logs state to render streaming AI thoughts (triggers re-render)
+  const [liveLogs, setLiveLogs] = useState<Record<string, string[]>>({});
+  // Keep timers for auto-removal of live log lines per request
+  const liveLogTimersRef = useRef(new Map<string, any[]>());
 
   // WebSocket connection management with reconnect/backoff
   useEffect(() => {
@@ -213,13 +222,55 @@ const Chat = () => {
             const msg = JSON.parse(ev.data as string);
             const reqId = msg.request_id || msg.requestId || msg.id;
 
-            if (reqId && pendingRef.current.has(reqId)) {
-              const p = pendingRef.current.get(reqId)!;
-              clearTimeout(p.timeout);
-              p.resolve(msg);
-              pendingRef.current.delete(reqId);
-              return;
-            }
+                if (reqId && pendingRef.current.has(reqId)) {
+                  // collect logs for this request and update live UI
+                  if (msg.event === 'log' || msg.event === 'node_start' || msg.event === 'node_end' || msg.event === 'agent' || msg.event === 'state_update' || msg.event === 'node_output') {
+                    const line = msg.message ? String(msg.message) : JSON.stringify(msg);
+                    const prev = pendingLogsRef.current.get(reqId) || [];
+                    pendingLogsRef.current.set(reqId, [...prev, line]);
+
+                    // update live React state so UI shows lines as they arrive
+                    setLiveLogs((s) => {
+                      const nextArr = [...(s[reqId] || []), line];
+                      return { ...s, [reqId]: nextArr };
+                    });
+
+                    // schedule auto-removal of this line after 2.5s so lines disappear one-by-one
+                    const t = setTimeout(() => {
+                      setLiveLogs((s) => {
+                        const arr = [...(s[reqId] || [])];
+                        arr.shift();
+                        const copy = { ...s };
+                        if (arr.length === 0) delete copy[reqId]; else copy[reqId] = arr;
+                        return copy;
+                      });
+                    }, 2500);
+                    const timers = liveLogTimersRef.current.get(reqId) || [];
+                    liveLogTimersRef.current.set(reqId, [...timers, t]);
+
+                    // don't resolve on pure log messages (wait for final event)
+                    if (msg.event !== 'agent_finish' && msg.event !== 'node_output') return;
+                  }
+
+                  const p = pendingRef.current.get(reqId)!;
+                  clearTimeout(p.timeout);
+                  const logs = pendingLogsRef.current.get(reqId) || [];
+                  // Attach collected logs to the resolved payload under a private key
+                  const resolved = { ...msg, _agent_logs: logs };
+                  p.resolve(resolved);
+                  pendingRef.current.delete(reqId);
+                  pendingLogsRef.current.delete(reqId);
+                  // clear live timers and live state for this request
+                  const timers = liveLogTimersRef.current.get(reqId) || [];
+                  timers.forEach((tt) => clearTimeout(tt));
+                  liveLogTimersRef.current.delete(reqId);
+                  setLiveLogs((s) => {
+                    const copy = { ...s };
+                    delete copy[reqId];
+                    return copy;
+                  });
+                  return;
+                }
 
             // If server doesn't echo request id but sends an event like 'agent_finish',
             // resolve the oldest pending request (best-effort mapping).
@@ -227,16 +278,42 @@ const Chat = () => {
               const firstKey = pendingRef.current.keys().next().value;
               const p = pendingRef.current.get(firstKey)!;
               clearTimeout(p.timeout);
-              p.resolve(msg.final_output || msg);
+              const logs = pendingLogsRef.current.get(firstKey) || [];
+              const resolved = { ...(msg.final_output || msg), _agent_logs: logs };
+              p.resolve(resolved);
               pendingRef.current.delete(firstKey);
+              pendingLogsRef.current.delete(firstKey);
               return;
             }
 
-            if (msg.event === 'log') {
-              if (msg.type === 'error') console.error('Agent log (error)', msg.message || msg);
-              else console.info('Agent log', msg.message || msg);
-              return;
-            }
+                if (msg.event === 'log') {
+                  if (msg.type === 'error') console.error('Agent log (error)', msg.message || msg);
+                  else console.info('Agent log', msg.message || msg);
+                  // best-effort: attach to oldest pending request's logs
+                  if (pendingRef.current.size > 0) {
+                    const firstKey = pendingRef.current.keys().next().value;
+                    const prev = pendingLogsRef.current.get(firstKey) || [];
+                    const line = String(msg.message || JSON.stringify(msg));
+                    pendingLogsRef.current.set(firstKey, [...prev, line]);
+                    // also update live UI for the oldest pending request
+                    setLiveLogs((s) => {
+                      const nextArr = [...(s[firstKey] || []), line];
+                      return { ...s, [firstKey]: nextArr };
+                    });
+                    const t = setTimeout(() => {
+                      setLiveLogs((s) => {
+                        const arr = [...(s[firstKey] || [])];
+                        arr.shift();
+                        const copy = { ...s };
+                        if (arr.length === 0) delete copy[firstKey]; else copy[firstKey] = arr;
+                        return copy;
+                      });
+                    }, 7000);
+                    const timers = liveLogTimersRef.current.get(firstKey) || [];
+                    liveLogTimersRef.current.set(firstKey, [...timers, t]);
+                  }
+                  return;
+                }
 
             if (msg.event === 'agent_start' || msg.event === 'agent_progress' || msg.event === 'node_start' || msg.event === 'node_end' || msg.event === 'agent') {
               console.info('Agent event', msg);
@@ -283,6 +360,10 @@ const Chat = () => {
       // On unmount reject any pending requests
       pendingRef.current.forEach((p) => { clearTimeout(p.timeout); p.reject(new Error('socket closed')); });
       pendingRef.current.clear();
+      // clear any live log timers
+      liveLogTimersRef.current.forEach((timers) => timers.forEach((t: any) => clearTimeout(t)));
+      liveLogTimersRef.current.clear();
+      setLiveLogs({});
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -299,7 +380,8 @@ const Chat = () => {
             pendingRef.current.delete(request_id);
           }
         }, timeoutMs);
-
+        // Initialize per-request logs buffer so we can show internal agent events later
+        pendingLogsRef.current.set(request_id, []);
         pendingRef.current.set(request_id, { resolve, reject, timeout: timer });
         ws.send(JSON.stringify(payload));
       } catch (err) {
@@ -394,7 +476,7 @@ function cleanVertexLinks(text: string) {
 
   const handleSendMessage = async (content: string, type?: "text" | "file" | "image" | "voice", fileName?: string, file?: File) => {
     const newMessage: Message = {
-      id: Date.now().toString(),
+      id: genId(),
       content,
       sender: "user",
       timestamp: new Date(),
@@ -407,9 +489,11 @@ function cleanVertexLinks(text: string) {
 
     try {
       let botContent: string;
+      let lastResp: any = null;
       if (type === "text") {
         console.log("Sending text message:", content);
         const resp = await fetchApiResponse(content);
+        lastResp = resp;
         if (resp && resp.error) {
           botContent = resp.message;
         } else {
@@ -417,7 +501,7 @@ function cleanVertexLinks(text: string) {
           if (resp?.verified_results && Array.isArray(resp.verified_results) && resp.verified_results.length > 0) {
             const vrSummary = formatVerifiedResults(resp.verified_results);
             const vrMessage: Message = {
-              id: (Date.now() + 2).toString(),
+              id: genId(),
               content: "Verified results",
               sender: "bot",
               timestamp: new Date(),
@@ -467,6 +551,7 @@ function cleanVertexLinks(text: string) {
             // botContent = chatJson.response || JSON.stringify(chatJson);
             // Call API with structured payload including image URL
             const resp = await fetchApiResponse(content, imageUrl);
+            lastResp = resp;
             if (resp && resp.error) {
               botContent = resp.message;
             } else {
@@ -474,7 +559,7 @@ function cleanVertexLinks(text: string) {
               if (resp?.verified_results && Array.isArray(resp.verified_results) && resp.verified_results.length > 0) {
                 const vrSummary = formatVerifiedResults(resp.verified_results);
                 const vrMessage: Message = {
-                  id: (Date.now() + 3).toString(),
+                  id: genId(),
                   content: "Verified results",
                   sender: "bot",
                   timestamp: new Date(),
@@ -496,17 +581,18 @@ function cleanVertexLinks(text: string) {
       }
       const formattedContent = cleanVertexLinks(botContent);
       const botResponse: Message = {
-        id: (Date.now() + 1).toString(),
+        id: genId(),
         content: formattedContent,
         sender: "bot",
-        timestamp: new Date()
+        timestamp: new Date(),
+        meta: lastResp ? { ...(lastResp.meta || {}), agent_logs: lastResp._agent_logs || [] } : undefined
       };
       console.log("Bot response message:", botResponse);
       setMessages(prev => [...prev, botResponse]);
     } catch (error) {
       // Add error message to chat
       const errorResponse: Message = {
-        id: (Date.now() + 1).toString(),
+        id: genId(),
         content: "I apologize, but something went wrong. Please try again.",
         sender: "bot",
         timestamp: new Date()
@@ -586,7 +672,6 @@ function cleanVertexLinks(text: string) {
       return `Verified results: ${JSON.stringify(verifiedResults)}`;
     }
   };
-
 
   return (
     
@@ -671,6 +756,22 @@ function cleanVertexLinks(text: string) {
             {messages.map((message) => (
               <ChatMessage key={message.id} message={message} />
             ))}
+            {/* Live AI thoughts for the first pending request (streaming) */}
+            {(() => {
+              const firstKey = Object.keys(liveLogs)[0];
+              const lines = firstKey ? liveLogs[firstKey] || [] : [];
+              if (!firstKey || lines.length === 0) return null;
+              return (
+                <div className="mb-4">
+                  <div className="text-xs text-muted-foreground mb-1">AI thoughts</div>
+                  <div className="space-y-1">
+                    {lines.map((ln, i) => (
+                      <div key={i} className="text-sm text-muted-foreground px-2 py-1 bg-muted rounded-md font-mono">{ln}</div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
             {isTyping && (
               <div className="flex items-center gap-2 text-muted-foreground mb-4">
                 <div className="flex gap-1">
