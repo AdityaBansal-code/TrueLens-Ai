@@ -536,20 +536,7 @@ function cleanVertexLinks(text: string) {
             const uploadJson = await uploadRes.json();
             const imageUrl = uploadJson.public_url || uploadJson.object_name && uploadJson.public_url;
                console.log("Uploaded image URL:", imageUrl);
-            // Send message to local /chat endpoint including the image URL
-            // const chatRes = await fetch(`${API_BASE}/chat`, {
-            //   method: "POST",
-            //   headers: { "Content-Type": "application/json" },
-            //   body: JSON.stringify({ message: content, image_url: imageUrl, conversation_id: currentChatId }),
-            // });
-
-            // if (!chatRes.ok) {
-            //   throw new Error(`Chat API error (${chatRes.status})`);
-            // }
-
-            // const chatJson = await chatRes.json();
-            // botContent = chatJson.response || JSON.stringify(chatJson);
-            // Call API with structured payload including image URL
+            
             const resp = await fetchApiResponse(content, imageUrl);
             lastResp = resp;
             if (resp && resp.error) {
@@ -795,8 +782,6 @@ function cleanVertexLinks(text: string) {
 };
 
 export default Chat;
-
-
 
 
 
