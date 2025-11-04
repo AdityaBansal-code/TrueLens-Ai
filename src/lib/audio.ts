@@ -2,7 +2,7 @@
 export async function transcribeBase64Audio(base64Audio: string) {
   try {
     // Send the full data URL to the server and let it infer encoding from MIME type
-    const TRANSCRIBE_BASE = (import.meta.env.VITE_TRANSCRIBE_BASE as string) || "http://localhost:4000";
+    const TRANSCRIBE_BASE = (import.meta.env.VITE_TRANSCRIBE_BASE as string) || "https://gen-ai-exchange-5fsa.onrender.com";
     const resp = await fetch(`${TRANSCRIBE_BASE}/transcribe`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
