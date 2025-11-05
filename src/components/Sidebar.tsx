@@ -193,13 +193,13 @@ const Sidebar: React.FC<SidebarProps> = ({ onSidebarOpen, currentChatId }) => {
           >
             <BarsIcon />
           </button>
-          <button 
+          {/* <button 
             className="p-2 rounded-full hover:bg-muted transition" 
             aria-label="Search old chats"
             title="Search (coming soon)"
           >
             <FaSearch size={16} />
-          </button>
+          </button> */}
         </div>
 
         {/* New Chat Button */}
