@@ -85,7 +85,7 @@ export const createChat = async (userId: string, firstMessage?: Message): Promis
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   };
-     console.log("backenddd",chatData)
+    
      // warn about undefined fields in message objects
      (chatData.messages || []).forEach((m: any, i: number) => {
         Object.entries(m).forEach(([key, value]) => {
