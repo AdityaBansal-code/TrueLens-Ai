@@ -528,6 +528,10 @@ function cleanVertexLinks(text: string) {
             // Use API_BASE for uploads if you want them to go to the hosted service
             const uploadEndpoint = `${API_BASE}/upload-to-gcs`;
             console.log("Uploading image to:",form, uploadEndpoint);
+            for (let [key, value] of form.entries()) {
+  console.log("FormData entry:", key, value);
+}
+
             
             const uploadRes = await fetch(uploadEndpoint, {
               method: "POST",
