@@ -519,11 +519,16 @@ function cleanVertexLinks(text: string) {
         if (file) {
           try {
             const form = new FormData();
+                  if (!file) {
+  console.error("No file selected for upload");
+  return;
+}
             form.append("file", file, file.name);
               console.log("Uploading image file:", file.name, content);
             // Use API_BASE for uploads if you want them to go to the hosted service
             const uploadEndpoint = `${API_BASE}/upload-to-gcs`;
-            console.log("Uploading image to:", uploadEndpoint);
+            console.log("Uploading image to:",form, uploadEndpoint);
+            
             const uploadRes = await fetch(uploadEndpoint, {
               method: "POST",
               body: form,
