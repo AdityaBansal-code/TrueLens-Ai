@@ -6,6 +6,7 @@ import ChatMessage from "@/components/ChatMessage";
 import ChatInput from "@/components/ChatInput";
 import Sidebar from "@/components/Sidebar";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import GoogleShield from "@/components/ui/GoogleShield";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -674,19 +675,19 @@ function cleanVertexLinks(text: string) {
   <div className="relative h-screen min-h-[100dvh]">
       <Sidebar onSidebarOpen={setSidebarOpen} currentChatId={currentChatId} />
       <header
-        className={`flex items-center justify-between gap-2 py-4 px-6 border-b border-border bg-card transition-all duration-300 ${sidebarOpen ? "ml-64" : "ml-0"} md:gap-4 md:px-8 md:py-4 sm:gap-2 sm:px-4 sm:py-3`}
+        className={`flex items-center justify-between gap-2 py-4 px-6 border-b border-border bg-card transition-all duration-300 ${sidebarOpen ? "ml-64" : "ml-12"} md:gap-4 md:px-8 md:py-4 sm:gap-2 sm:px-4 sm:py-3`}
         style={{ zIndex: 10, position: "relative" }}
       >
         <div className="flex items-center gap-2">
-          <button 
+          {/* <button 
             onClick={() => navigate("/")} 
             className="mr-2 text-muted-foreground hover:text-foreground transition-colors"
             title="Go back"
             aria-label="Go back"
           >
             <ArrowLeft className="h-5 w-5" />
-          </button>
-          <img src="/google-shield.svg" alt="Google Shield" className="w-10 h-10 min-w-8 min-h-8 sm:w-8 sm:h-8 md:w-10 md:h-10" />
+          </button> */}
+         <GoogleShield className=" min-w-8 min-h-8 sm:w-8 sm:h-8 md:w-8 md:h-8" />
           <div className="ml-2 sm:ml-1 md:ml-2">
             <div className="font-bold text-lg">TrueLens AI</div>
             <div className="text-xs text-success">Online</div>
