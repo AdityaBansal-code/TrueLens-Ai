@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import { format } from "date-fns";
+import { format, isToday, isYesterday, isThisYear } from "date-fns";
 import { useState } from "react";
 import ReactMarkdown from "react-markdown";
 interface ChatMessageProps {
@@ -17,6 +17,25 @@ interface ChatMessageProps {
 const ChatMessage = ({ message }: ChatMessageProps) => {
   const isUser = message.sender === "user";
   const [showLogs, setShowLogs] = useState(false);
+  // Normalize timestamp: support Firestore Timestamp (has toDate()) or plain Date/string
+  const timestampDate = (() => {
+    const ts: any = message.timestamp;
+    if (ts && typeof ts.toDate === "function") return ts.toDate();
+    if (ts instanceof Date) return ts;
+    return new Date(ts as any);
+  })();
+
+  // Friendly display: today -> time, yesterday -> "Yesterday HH:MM", else -> date + time
+  const displayTimestamp = (() => {
+    try {
+      if (isToday(timestampDate)) return format(timestampDate, "hh:mm a");
+      if (isYesterday(timestampDate)) return `Yesterday ${format(timestampDate, "hh:mm a")}`;
+      if (isThisYear(timestampDate)) return format(timestampDate, "MMM d, hh:mm a");
+      return format(timestampDate, "MMM d, yyyy, hh:mm a");
+    } catch (e) {
+      return format(new Date(), "hh:mm a");
+    }
+  })();
 
   return (
     <div className={cn(
@@ -143,8 +162,7 @@ const ChatMessage = ({ message }: ChatMessageProps) => {
           "text-xs text-muted-foreground mt-1 block opacity-0 group-hover:opacity-100 transition-opacity",
           isUser ? "text-right mr-1" : "text-left ml-1"
         )}>
-       format(message.timestamp.toDate(), "hh:mm a")
-
+          {displayTimestamp}
         </span>
       </div>
     </div>

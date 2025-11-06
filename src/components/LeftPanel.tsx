@@ -11,7 +11,7 @@ const steps = [
     icon: Upload,
     title: "Submit Content",
     description:
-      "Upload text, images, PDFs, or voice messages for verification",
+      "Upload text, images, or voice messages for verification",
     color: "google-blue",
   },
   {
@@ -131,19 +131,7 @@ const LeftPanel = () => {
                 <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
               </Button>
 
-              {/* Secondary CTA with Yellow hover */}
-              <Button
-                size="lg"
-                variant="outline"
-                onClick={() =>
-                  document
-                    .getElementById("how-it-works")
-                    ?.scrollIntoView({ behavior: "smooth" })
-                }
-                className="border-2 border-google-green text-google-green hover:bg-google-yellow hover:border-google-yellow hover:text-white transition-all duration-base"
-              >
-                Learn More
-              </Button>
+              
             </motion.div>
           </div>
         </div>
@@ -206,10 +194,8 @@ const LeftPanel = () => {
 
                     {/* Step number with yellow glow */}
                     <div className="absolute -top-3 -right-3 flex items-center justify-center">
-                      <div className="w-7 h-7 bg-google-yellow rounded-full blur-md opacity-70 animate-pulse absolute"></div>
-                      <div className="w-7 h-7 bg-google-yellow rounded-full flex items-center justify-center text-xs font-bold text-black shadow-md relative">
-                        {index + 1}
-                      </div>
+                     
+                     
                     </div>
 
                     <h3 className="text-base md:text-lg font-semibold">

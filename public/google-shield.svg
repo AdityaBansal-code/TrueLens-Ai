@@ -1,11 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-  <defs>
-    <linearGradient id="google-gradient" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="24" y2="24">
-      <stop offset="0%" stop-color="#4285F4" />
-      <stop offset="25%" stop-color="#EA4335" />
-      <stop offset="50%" stop-color="#FBBC05" />
-      <stop offset="75%" stop-color="#34A853" />
-    </linearGradient>
-  </defs>
-  <path stroke="url(#google-gradient)" stroke-linecap="round" stroke-linejoin="round" d="M12 2l7 4v6a9 9 0 01-7 8.94A9 9 0 015 12V6l7-4z" />
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="w-20 h-20">
+  <path d="M12 3L4 7v6" fill="none" stroke="#4285F4" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"></path>
+  <path d="M12 3l8 4v6" fill="none" stroke="#EA4335" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"></path>
+  <path d="M20 13c0 5-3.5 9-8 10" fill="none" stroke="#34A853" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"></path>
+  <path d="M4 13c0 5 3.5 9 8 10" fill="none" stroke="#FBBC05" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"></path>
 </svg>

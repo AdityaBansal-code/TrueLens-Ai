@@ -457,7 +457,7 @@ const ChatInput = ({ onSendMessage }: ChatInputProps) => {
                   onKeyDown={handleKeyPress}
                   onTouchStart={handleTouchStart}
                   onTouchEnd={handleTouchEnd}
-                  placeholder="Type your message... (Click button or swipe right for multi-line)"
+                  placeholder="Type your message... "
                   className={cn(
                     "pr-20 sm:pr-12 py-6 text-sm sm:text-base bg-muted/50 border-border focus:border-primary transition-colors",
                     selectedImagePreview ? "pl-24" : ""
