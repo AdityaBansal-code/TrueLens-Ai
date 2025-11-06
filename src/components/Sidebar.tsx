@@ -179,12 +179,12 @@ const Sidebar: React.FC<SidebarProps> = ({ onSidebarOpen, currentChatId }) => {
       {/* Sidebar Panel */}
       <aside
         ref={asideRef}
-        className={`fixed top-0 left-0 h-full w-64 bg-card border-r border-border shadow-lg z-40 transition-transform duration-300 ${visible ? "translate-x-0" : "-translate-x-full"} flex flex-col`}
+        className={`fixed top-0 left-0 h-full w-64 bg-card border-r border-border shadow-lg z-40 transition-transform duration-300 ${visible ? "translate-x-0" : "-translate-x-48 bg-gray-100"} flex flex-col`}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
       >
         {/* Header */}
-        <div className="p-[22px_16px] border-b border-border flex items-center justify-between">
+        <div className={`p-[22px_16px] border-b border-border flex ${!visible ? "justify-end" : "items-start"} `}>
           <button 
             ref={toggleButtonRef}
             className="p-1 rounded-full hover:bg-muted transition" 
@@ -203,7 +203,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onSidebarOpen, currentChatId }) => {
         </div>
 
         {/* New Chat Button */}
-        <div className="p-2 border-b border-border">
+        <div className={`p-2 border-b border-border ${visible ? "block" : "hidden"}`}>
           <Button
             onClick={handleNewChat}
             className="w-full justify-start gap-2"
