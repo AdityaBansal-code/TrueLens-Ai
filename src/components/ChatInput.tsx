@@ -271,19 +271,7 @@ const ChatInput = ({ onSendMessage }: ChatInputProps) => {
         {/* Mode indicator */}
         <div className="flex items-center justify-center mb-2">
           <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/30 px-2 sm:px-3 py-1 rounded-full max-w-full">
-            {isMultiLine ? (
-              <>
-                <MessageSquareText className="h-3 w-3 flex-shrink-0" />
-                <span className="hidden sm:inline">Multi-line mode • Click button or swipe left for single line</span>
-                <span className="sm:hidden">Multi-line mode</span>
-              </>
-            ) : (
-              <>
-                <Type className="h-3 w-3 flex-shrink-0" />
-                <span className="hidden sm:inline">Single-line mode • Click button or swipe right for multi-line</span>
-                <span className="sm:hidden">Single-line mode</span>
-              </>
-            )}
+
           </div>
         </div>
         
